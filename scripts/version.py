@@ -1,41 +1,83 @@
 """
 Bump the version number
 """
-import os
 import argparse
+import requests
 
-parser = argparse.ArgumentParser()
-parser.add_argument('action', choices=['next', 'current', 'previous'])
-args = parser.parse_args()
 
-version = None
-title = None
+def current_version():
+    x, y, z = current_version_tuple()
+    return "{0}.{1}.{2}".format(x, y, z)
 
-for line in open('src/conf.lua'):
-    line = line.strip()
-    if 't.title' not in line:
-        continue
-    _, full_title = line.replace('"', '').split('=')
-    title, current = full_title.strip().rsplit(' ', 1)
-    x, y, z = current.split('.')
-    
-    if args.action == 'next':
-        z = int(z) + 1
-    elif args.action == 'previous':
-        z = int(z) - 1
+
+def next_bugfix_version():
+    x, y, z = current_version_tuple()
+    return "{0}.{1}.{2}".format(x, y, int(z) + 1)
+
+
+def next_minor_version():
+    x, y, z = current_version_tuple()
+    return "{0}.{1}.0".format(x, int(y)+1)
+
+
+def next_major_version():
+    x, y, z = current_version_tuple()
+    return "{0}.0.0".format(int(x)+1)
+
+
+def next_version():
+    if is_major():
+        return next_major_version()
+    elif is_release():
+        return next_minor_version()
     else:
-        z = int(z)
+        return next_bugfix_version()
 
-    version = "{}.{}.{}".format(x,y,z) 
 
-if not title or not version:
-    print "Could not find version number"
-    exit(1)
+def prev_version():
+    x, y, z = current_version_tuple()
+    return "{0}.{1}.{2}".format(x, y, int(z) - 1)
 
-if version == '0.8.0':
-    print "This is the LOVE version, not safe"
-    exit(1)
 
-print version
-exit(0)
+def current_version_tuple():
+    url = ("https://api.github.com/repos/hawkthorne/"
+           "hawkthorne-journey/releases/latest")
+    resp = requests.get(url)
+    tag_name = resp.json()['tag_name']
+    return tuple(tag_name.replace('v', '').split('.'))
 
+
+def is_release():
+    url = "https://api.github.com/repos/hawkthorne/hawkthorne-journey/pulls"
+    resp = requests.get(url, params={'state': 'closed', 'base': 'release'})
+
+    if not resp.ok:
+        return False
+
+    pulls = resp.json()
+
+    if len(pulls) == 0:
+        return False
+
+    return 'release' in pulls[0].get('title', '').lower()
+
+
+def is_major():
+    url = "https://api.github.com/repos/hawkthorne/hawkthorne-journey/pulls"
+    resp = requests.get(url, params={'state': 'closed', 'base': 'release'})
+
+    if not resp.ok:
+        return False
+
+    pulls = resp.json()
+
+    if len(pulls) == 0:
+        return False
+
+    return 'majorversion' in pulls[0].get('title', '').lower()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('action', choices=['next', 'current', 'previous'])
+    parser.add_argument('--sparkle', action='store_true', default=False)
+    print(current_version_tuple())

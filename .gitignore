@@ -1,6 +1,24 @@
 build
 .DS_Store
-.*
+__*
 full_soundtrack.ogg
+hawkthorne
 win32/*
 win64/*
+redditors.txt
+src/maps/*.lua
+venv
+tmx2lua*
+bin/*
+dsa_priv.pem
+release.md
+post.md
+notes.html
+*.bak
+*.pyc
+Thumbs.db
+
+save
+src/test/fixtures/Fake.app
+Journey\ to\ the\ Center\ of\ Hawkthorne.app
+sparkle/appcast.json

@@ -2,28 +2,30 @@ local Queue = {}
 Queue.__index = Queue
 
 function Queue.new()
-    local queue = {}
-    queue.items = {}
-    setmetatable(queue, Queue)
-    return queue
+  local queue = {}
+  queue.items = {}
+  setmetatable(queue, Queue)
+  return queue
 end
 
+function Queue:poll(key)
+  -- returns true if the queue had items in it
+  local args = self.items[key]
+  self.items[key] = nil
 
-function Queue:flush()
-    -- returns true if the queue had items in it
-    local item = table.remove(self.items)
-    local filled = false
+  if args == nil then
+    return false
+  end
 
-    while item do 
-        filled = true
-        item = table.remove(self.items)
-    end
+  if #args > 0 then
+    return true, unpack(args)
+  end
 
-    return filled
+  return true
 end
 
-function Queue:push(item)
-    return table.insert(self.items, item)
+function Queue:push(key, ...)
+  self.items[key] = {...}
 end
 
 return Queue

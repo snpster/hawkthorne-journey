@@ -1,14 +1,16 @@
-**CHANGES**
-{% for commit in commits %}
-- {{ commit.commit.message }}
-{% endfor %}
+{body}
+
 **DOWNLOAD**
 
-- [OS X](https://s3.amazonaws.com/hawkthorne.journey.builds/{{version}}/hawkthorne-osx.zip)
-- [Windows 32-bit](https://s3.amazonaws.com/hawkthorne.journey.builds/{{version}}/hawkthorne-win-x86.zip)
-- [Windows 64-bit](https://s3.amazonaws.com/hawkthorne.journey.builds/{{version}}/hawkthorne-win-x64.zip)
-- [hawkthorne.love](https://s3.amazonaws.com/hawkthorne.journey.builds/{{version}}/hawkthorne.love) for those on Linux.
+- [OS X](https://github.com/hawkthorne/hawkthorne-journey/releases/download/v{version}/hawkthorne-osx.zip)
+- [Windows](https://github.com/hawkthorne/hawkthorne-journey/releases/download/v{version}/hawkthorne-win-x86.zip)
+- [hawkthorne.love](https://github.com/hawkthorne/hawkthorne-journey/releases/download/v{version}/hawkthorne.love)
   You'll need to install the [love](http://love2d.org) framework as well.
 
-**Found a bug? [Report it here](https://docs.google.com/spreadsheet/viewform?pli=1&formkey=dFh5bmRNVWZrdlBHbUVmcmZNczJoaXc6MQ#gid=0)**
+**How can I help?**
 
+- [**Play test the game and find bugs**](https://github.com/hawkthorne/hawkthorne-journey/blob/master/CONTRIBUTING.md#playtest)
+- [Code new game features](https://github.com/hawkthorne/hawkthorne-journey/blob/master/CONTRIBUTING.md#code)
+- [Record music and sound effects](https://github.com/hawkthorne/hawkthorne-journey/blob/master/CONTRIBUTING.md#music-and-sound-effects)
+- [Draw sprites and tile sets](https://github.com/hawkthorne/hawkthorne-journey/blob/master/CONTRIBUTING.md#sprites)
+- [Create new costumes and characters](https://github.com/hawkthorne/hawkthorne-journey/blob/master/CONTRIBUTING.md#characters-and-costumes)

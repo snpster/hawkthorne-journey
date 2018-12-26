@@ -1,60 +1,32 @@
 import os
-import json
 import argparse
-import requests
-from collections import OrderedDict
+import boto
+import logging
+from boto.s3 import key
 
-downloads_url = "https://api.github.com/repos/{user}/{repo}/downloads".format(
-    user="kyleconroy", repo="hawkthorne-journey")
-
-github = json.load(open(os.path.expanduser("~/.githubrc")))
-
-auth = ("kyleconroy", github['password'])
-
-parser = argparse.ArgumentParser(description="Upload files to Github")
+parser = argparse.ArgumentParser(description="Upload files to S3")
+parser.add_argument("prefix", help="Prefix for file of upload")
 parser.add_argument("path", help="File to upload")
-args = parser.parse_args()
-
-name = os.path.basename(args.path)
-
-downloads = json.loads(requests.get(downloads_url).text)
-download = [d for d in downloads if d['name'] == name]
-
-if download:
-
-    with open('stats.json', 'r') as f:
-        # Track download stats since I will be deleting downloads often
-        stats = json.load(f)
-        stats[name] = download[0]['download_count'] + stats.get(name, 0)
-        json.dump(stats, open('stats.json', 'w'), indent=4)
-
-    requests.delete(download[0]['url'], auth=auth).raise_for_status()
 
 
-upload_info = {
-    'name': name,
-    'size': os.path.getsize(args.path),
-    }
+def upload_path(b, prefix, path):
+    if 'TRAVIS' not in os.environ:
+        logging.info('[DRYRUN] uploading {} to {}'.format(path, prefix))
+        return
 
-resp = requests.post(downloads_url, data=json.dumps(upload_info), auth=auth)
-resp.raise_for_status()
+    name = os.path.basename(path)
+    k = key.Key(b)
+    k.key = os.path.join(prefix, name)
 
-s3 = json.loads(resp.text)
+    logging.info('Uploading {} to {}'.format(path, prefix))
+    k.set_contents_from_filename(path)
+    k.set_acl('public-read')
 
-files = {'file' : open(args.path, 'rb')}
 
-s3_info = OrderedDict([
-    ('key', s3['path']),
-    ('acl', s3['acl']),
-    ('success_action_status', 201),
-    ('Filename', s3['name']),
-    ('AWSAccessKeyId', s3['accesskeyid']),
-    ('Policy', s3['policy']),
-    ('Signature', s3['signature']),
-    ('Content-Type', s3['mime_type']),
-])
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    args = parser.parse_args()
 
-resp = requests.post(s3['s3_url'], data=s3_info, files=files)
-resp.raise_for_status()
-
-print resp.text
+    c = boto.connect_s3()
+    b = c.get_bucket('files.projecthawkthorne.com', validate=False)
+    upload_path(b, args.prefix, args.path)

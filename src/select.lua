@@ -1,184 +1,269 @@
 local Gamestate = require 'vendor/gamestate'
 local Level = require 'level'
 local window = require 'window'
+local fonts = require 'fonts'
+local background = require 'selectbackground'
+local sound = require 'vendor/TEsound'
+local character = require 'character'
+local controls = require('inputcontroller').get()
+
 local state = Gamestate.new()
 
-local music = love.audio.newSource("audio/opening.ogg")
-music:setLooping(true)
-
-
-local Wardrobe = {}
-Wardrobe.__index = Wardrobe
-
-function Wardrobe.create(character)
-    local drobe = {}
-    setmetatable(drobe, Wardrobe)
-
-    drobe.character = character
-    drobe.count = 1
-
-    drobe.image = love.graphics.newImage(character.costumes[1].sheet)
-    drobe.image:setFilter('nearest', 'nearest')
-    drobe.mask = love.graphics.newQuad(0, character.offset, 48, 27,
-                                       drobe.image:getWidth(),
-                                       drobe.image:getHeight())
-
-    local lfs = love.filesystem
-
-    for i,v in ipairs(lfs.enumerate('/costumes/' .. character.name)) do
-        if string.find(v, '.png') then
-            local sheet = '/costumes/' .. character.name .. '/' .. v
-            table.insert(character.costumes, {name=v, sheet=sheet})
-        end
-    end
-
-    return drobe
-end
-
-function Wardrobe:newCharacter()
-    local sprite = self.character.new(self.image)
-    sprite.ow = self.character.ow
-    return sprite
-end
-
-function Wardrobe:getCostume()
-    return self.character.costumes[self.count]
-end
-
-function Wardrobe:prevCostume()
-    self.count = (self.count - 1)
-    if self.count == 0 then
-      self.count = (# self.character.costumes)
-    end
-    self:loadCostume()
-end
-
-function Wardrobe:nextCostume()
-    self.count = math.max((self.count + 1) % (# self.character.costumes + 1), 1)
-    self:loadCostume()
-end
-
-function Wardrobe:loadCostume()
-    self.image = love.graphics.newImage(self.character.costumes[self.count].sheet)
-    self.mask = love.graphics.newQuad(0, self.character.offset, 48, 27,
-                                       self.image:getWidth(),
-                                       self.image:getHeight())
-end
-
-function Wardrobe:draw(x, y, flipX)
-    love.graphics.drawq(self.image, self.mask, x, y, 0, flipX, 1)
-end
-
-
-local selections = {}
-selections[0] = {}
-selections[1] = {}
-selections[1][0] = Wardrobe.create(require 'characters/troy')
-selections[1][1] = Wardrobe.create(require 'characters/shirley')
-selections[1][2] = Wardrobe.create(require 'characters/pierce')
-selections[0][0] = Wardrobe.create(require 'characters/jeff')
-selections[0][1] = Wardrobe.create(require 'characters/britta')
-selections[0][2] = Wardrobe.create(require 'characters/abed')
-selections[0][3] = Wardrobe.create(require 'characters/annie')
-
+-- The current selected page
 
 function state:init()
-    self.side = 0 -- 0 for left, 1 for right
-    self.level = 0 -- 0 through 3 for characters
-    self.screen = love.graphics.newImage("images/selectscreen.png")
-    self.arrow = love.graphics.newImage("images/arrow.png")
-    self.tmp = love.graphics.newImage('images/jeff.png')
+  self.side = 0 -- 0 for left, 1 for right
+  self.level = 0 -- 0 through 3 for characters
+  self.current_page = 1
+
+  background.init()
+  self.chartext = ""
+  self.costtext = ""
+  self.randomtext = ""
 end
 
 function state:enter(previous)
-    self.previous = previous
-    love.audio.play(music)
+  self.current_page = 1
+
+  self.character_selections = {}
+  self.characters = {}
+  self.costumes = {}
+
+  self.character_selections[1] = {} -- main characters
+  self.character_selections[1][0] = {} -- left
+  self.character_selections[1][1] = {} -- right
+  self.character_selections[1][1][0] = 'troy'
+  self.character_selections[1][1][1] = 'shirley'
+  self.character_selections[1][1][2] = 'pierce'
+  self.character_selections[1][0][0] = 'jeff'
+  self.character_selections[1][0][1] = 'britta'
+  self.character_selections[1][0][2] = 'abed'
+  self.character_selections[1][0][3] = 'annie'
+
+  self.character_selections[2] = {} -- page 2
+  self.character_selections[2][0] = {} -- left
+  self.character_selections[2][1] = {} -- right
+  self.character_selections[2][1][0] = 'chang'
+  self.character_selections[2][1][1] = 'fatneil'
+  self.character_selections[2][1][2] = 'vicedean'
+  self.character_selections[2][0][0] = 'dean'
+  self.character_selections[2][0][1] = 'guzman'
+  self.character_selections[2][0][2] = 'buddy'
+  self.character_selections[2][0][3] = 'leonard'
+
+  self.character_selections[3] = {} -- page 3
+  self.character_selections[3][0] = {} -- left
+  self.character_selections[3][1] = {} -- right
+  self.character_selections[3][1][0] = 'duncan'
+  self.character_selections[3][1][1] = 'rich'
+  self.character_selections[3][1][2] = 'vicki'
+  self.character_selections[3][0][0] = 'vaughn'
+  self.character_selections[3][0][1] = 'garrett'
+  self.character_selections[3][0][2] = 'gilbert'
+
+  self.selections = self.character_selections[self.current_page]
+
+  fonts.set('big')
+  self.previous = previous
+  background.enter()
+  background.setSelected(self.side, self.level)
+
+  self.chartext = "PRESS " .. controls:getKey('JUMP') .. " TO CHOOSE CHARACTER" 
+  self.costtext = "PRESS " .. controls:getKey('ATTACK') .. " or " ..controls:getKey('INTERACT') .. " TO CHANGE COSTUME"
+  self.randomtext = "PRESS " .. controls:getKey('SELECT') .. " TO GET A RANDOM COSTUME"
 end
 
-function state:wardrobe()
-    return selections[self.side][self.level]
+function state:character()
+  local name = self.selections[self.side][self.level]
+
+  if not name then
+    return nil
+  end
+
+  return self:loadCharacter(name)
 end
 
-function state:keypressed(key)
-    local level = self.level
-    local options = self.side == 0 and 4 or 3
+function state:loadCharacter(name)
+  if not self.characters[name] then
+    self.characters[name] = character.load(name)
+    self.characters[name].count = 1
+    self.characters[name].costume = 'base'
+  end
 
-    if key == 'left' or key == 'right' or key == 'a' or key == 'd' then
-        self.side = (self.side - 1) % 2
-    elseif key == 'up' or key == 'w' then
-        level = (self.level - 1) % options
-    elseif key == 'down' or key == 's' then
-        level = (self.level + 1) % options
-    end
+  return self.characters[name]
+end
 
-    if key == 'tab' then
-        if love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift") then
-            self:wardrobe():prevCostume()
-        else
-            self:wardrobe():nextCostume()
+function state:keypressed( button )
+  if button == "START" then
+    Gamestate.switch("welcome")
+    return true
+  end
+
+  -- If any input is received while sliding, speed up
+  if background.slideIn or background.slideOut then
+    background.speed = 10
+    return
+  end
+
+  local level = self.level
+  local options = 4
+
+  if button == 'LEFT' or button == 'RIGHT' then
+    self.side = (self.side - 1) % 2
+    sound.playSfx('click')
+  elseif button == 'UP' then
+    level = (self.level - 1) % options
+    sound.playSfx('click')
+  elseif button == 'DOWN' then
+    level = (self.level + 1) % options
+    sound.playSfx('click')
+  elseif button == 'ATTACK' then
+    if self.level == 3 and self.side == 1 then
+      return
+    else
+      local c = self:character()
+      if c then
+        c.count = (c.count + 1)
+        if c.count == (#c.costumes + 1) then
+          c.count = 1
         end
-        return
+        c.costume = c.costumes[c.count].sheet
+        sound.playSfx('click')
+      end
     end
-
-    self.level = self.side == 1 and level == 3 and 2 or level
-
-    if key == 'escape' then
-        Gamestate.switch(Gamestate.title)
-        return
+    return
+  elseif button == 'INTERACT' then
+    if self.level == 3 and self.side == 1 then
+      return
+    else
+      local c = self:character()
+      if c then
+        c.count = (c.count - 1)
+        if c.count == 0 then
+          c.count = #c.costumes
+        end
+        c.costume = c.costumes[c.count].sheet
+        sound.playSfx('click')
+      end
     end
-    
-    if key == 'return' and self.level == 3 and self.side == 1 then
-        Gamestate.switch(additional)
-    elseif key == 'return' then
-        local wardrobe = self:wardrobe()
-
-        local level = Gamestate.get('overworld')
-        level:reset()
-        Gamestate.switch('overworld', wardrobe:newCharacter())
+    return
+  elseif button == 'SELECT' then
+    local c = self:character()
+    if c then
+      c.count = math.random(#c.costumes)
+      c.costume = c.costumes[c.count].sheet
+      sound.playSfx('click')
     end
+  end
+
+  self.level = level
+
+  if ( button == 'JUMP' ) and self.level == 3 and self.side == 1 then
+    self.current_page = self.current_page % #self.character_selections + 1
+    self.selections = self.character_selections[self.current_page]
+    sound.playSfx('confirm')
+  elseif button == 'JUMP' then
+    if self:character() then
+      -- Tell the background to transition out before changing scenes
+      background.slideOut = true
+    end
+    sound.playSfx('confirm')
+  end
+
+  background.setSelected(self.side, self.level)
 end
 
 function state:leave()
-    love.audio.stop()
+  fonts.reset()
+  background.leave()
+
+  self.character_selections = nil
+  self.characters = nil
+  self.costumes = nil
+  self.selections = nil
+  self.previous = nil
+end
+
+function state:update(dt)
+  -- The background returns 'true' when the slide-out transition is complete
+  if background.update(dt) then
+    -- set the selected character and costume
+    local currentPick = self:character()
+
+    character.pick(currentPick.name, currentPick.costume)
+
+    -- Probably don't need this anymore
+    local current = character.current()
+    current.changed = true
+
+    love.graphics.setColor(255, 255, 255, 255)
+
+    local level = Gamestate.get('overworld')
+    level:reset()
+
+    Gamestate.switch('flyin')
+  end
+end
+
+function state:drawCharacter(name, x, y, offset)
+  local char = self:loadCharacter(name)
+  local key = name .. char.costume
+
+  if not self.costumes[key] then
+    self.costumes[key] = character.getCostumeImage(name, char.costume)
+  end
+
+  local image = self.costumes[key]
+
+  if not char.mask then
+    char.mask = love.graphics.newQuad(0, char.offset, 48, 35,
+                                      image:getWidth(), image:getHeight())
+  end
+
+  if offset then
+    love.graphics.draw(image, char.mask, x, y, 0, -1, 1)
+  else
+    love.graphics.draw(image, char.mask, x, y)
+  end
 end
 
 function state:draw()
-    love.graphics.draw(self.screen)
-    local x = 17
-    local r = 0
-    local offset = 68
+  background.draw()
 
-    if self.side == 1 then
-        x = window.width - 17
-        r = math.pi
-        offset = 68 + self.arrow:getHeight()
+  -- Only draw the details on the screen when the background is up
+  if not background.slideIn then
+    local name = ""
+
+    if self:character() then
+      name = self:character().costumes[self:character().count].name
     end
 
-    local costume = self:wardrobe():getCostume()
+    love.graphics.printf(self.chartext, 0, window.height - 75, window.width, 'center')
+    love.graphics.printf(self.costtext, 0, window.height - 55, window.width, 'center')
+    love.graphics.printf(self.randomtext, 0, window.height - 35, window.width, 'center')
 
-    love.graphics.draw(self.arrow, x, offset + 34 * self.level, r)
-    love.graphics.printf("Enter to start", 0,
-        window.height - 55, window.width, 'center')
-    love.graphics.printf("Tab to switch costume", 0,
-        window.height - 35, window.width, 'center')
-    love.graphics.printf(costume.name, 0,
-        23, window.width, 'center')
+    love.graphics.printf(name, 0,
+    23, window.width, 'center')
 
-    for i=0,1,1 do
-        for j=0,4,1 do
-            local wardrobe = selections[i][j]
-            if wardrobe then
-                if i == 0 then
-                    wardrobe:draw(131 + 48 - 34 * j, 66 + 34 * j, -1)
-                else
-                    wardrobe:draw(281 + 34 * j, 66 + 34 * j, 1)
-                end
-            end
-        end
+    local x, y = background.getPosition(1, 3)
+    love.graphics.setColor(255, 255, 255, 200)
+    love.graphics.print("INSUFFICIENT", x, y + 5, 0, 0.5, 0.5, 12, -6)
+    love.graphics.print(  "FRIENDS"   , x, y + 5, 0, 0.5, 0.5, -12, -32)
+    love.graphics.print(self.current_page .. ' / ' .. #self.character_selections, x + 60, y + 15, 0, 0.5, 0.5 )
+    love.graphics.setColor(255, 255, 255, 255)
+  end
+
+  for i=0,1,1 do
+    for j=0,3,1 do
+      local character_name = self.selections[i][j]
+      local x, y = background.getPosition(i, j)
+      if character_name then
+        self:drawCharacter(character_name, x, y, i == 0)
+      end
     end
+  end
 end
 
 Gamestate.home = state
 
 return state
-
